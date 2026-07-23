@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#0f1f3d;
+    --navy-2:#16294f;
+    --gold:#c8a24a;
+    --gold-light:#e8d9ae;
+    --cream:#faf7f0;
+    --ink:#1c2333;
+    --muted:#6b7280;
+    --line:#e3ddcc;
+    --danger:#b3452c;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+  }
+  header{
+    background:var(--navy);
+    color:var(--cream);
+    padding:28px 32px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    border-bottom:3px solid var(--gold);
+  }
+  header .mark{
+    width:44px;height:44px;border-radius:50%;
+    border:2px solid var(--gold);
+    display:flex;align-items:center;justify-content:center;
+    font-family:Georgia,serif;font-size:20px;color:var(--gold);
+    flex-shrink:0;
+  }
+  header h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.3px;}
+  header p{margin:2px 0 0;font-size:13px;color:var(--gold-light);}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 60px;}
+
+  .steps{display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap;}
+  .step-pill{
+    display:flex;align-items:center;gap:8px;
+    background:#fff;border:1px solid var(--line);border-radius:999px;
+    padding:8px 16px;font-size:13px;color:var(--muted);
+  }
+  .step-pill .num{
+    width:20px;height:20px;border-radius:50%;background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;
+  }
+  .step-pill.done{border-color:var(--gold);color:var(--ink);}
+  .step-pill.done .num{background:var(--gold);color:var(--navy);}
+
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:24px;align-items:start;}
+  @media (max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px 22px;margin-bottom:20px;
+  }
+  .panel h2{
+    font-size:14px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.6px;color:var(--navy);
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel h2 .badge{
+    background:var(--navy);color:#fff;width:22px;height:22px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:11px;
+  }
+  .panel .hint{font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5;}
+
+  .dropzone{
+    border:2px dashed var(--line);border-radius:8px;padding:22px 14px;
+    text-align:center;cursor:pointer;transition:.15s;background:var(--cream);
+  }
+  .dropzone:hover, .dropzone.drag{border-color:var(--gold);background:#fdfaf1;}
+  .dropzone p{margin:6px 0 0;font-size:12.5px;color:var(--muted);}
+  .dropzone strong{color:var(--navy);font-size:13.5px;}
+  input[type=file]{display:none;}
+
+  textarea{
+    width:100%;min-height:90px;border:1px solid var(--line);border-radius:8px;
+    padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;
+  }
+  textarea:focus, select:focus, input[type=text]:focus, input[type=number]:focus{
+    outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(200,162,74,.15);
+  }
+
+  .or-row{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;}
+  .or-row::before,.or-row::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  label.field-label{font-size:12px;font-weight:600;color:var(--navy);display:block;margin:14px 0 6px;}
+  select, input[type=text], input[type=number]{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;
+  }
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  input[type=range]{width:100%;}
+  input[type=color]{width:100%;height:36px;border:1px solid var(--line);border-radius:8px;padding:2px;cursor:pointer;}
+
+  .toggle-row{display:flex;gap:8px;margin-top:6px;}
+  .toggle-btn{
+    flex:1;padding:8px 6px;border:1px solid var(--line);border-radius:8px;background:#fff;
+    font-size:12.5px;cursor:pointer;color:var(--muted);
+  }
+  .toggle-btn.active{border-color:var(--navy);background:var(--navy);color:#fff;}
+
+  .name-count{
+    display:inline-flex;align-items:center;gap:6px;background:#f1ecd9;color:var(--navy);
+    border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;margin-top:10px;
+  }
+
+  .preview-wrap{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px 22px;position:sticky;top:20px;
+  }
+  .preview-wrap h2{font-size:14px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.6px;color:var(--navy);}
+  .preview-wrap .hint{font-size:12.5px;color:var(--muted);margin:0 0 14px;}
+  #canvasHolder{
+    position:relative;width:100%;background:repeating-conic-gradient(#f3f1ea 0% 25%, #fbfaf6 0% 50%) 50%/16px 16px;
+    border-radius:8px;overflow:hidden;border:1px solid var(--line);
+  }
+  #tplCanvas{display:block;width:100%;height:auto;cursor:crosshair;}
+  .empty-preview{
+    padding:60px 20px;text-align:center;color:var(--muted);font-size:13px;
+  }
+  .empty-preview i{display:block;font-size:13px;margin-bottom:6px;}
+
+  .actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;}
+  button.primary{
+    background:var(--navy);color:#fff;border:none;border-radius:8px;padding:12px 22px;
+    font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.2px;
+  }
+  button.primary:hover{background:var(--navy-2);}
+  button.primary:disabled{background:#c9c9c9;cursor:not-allowed;}
+  button.secondary{
+    background:#fff;color:var(--navy);border:1px solid var(--navy);border-radius:8px;padding:12px 20px;
+    font-size:14px;font-weight:600;cursor:pointer;
+  }
+  button.secondary:hover{background:#f1ecd9;}
+
+  .progress-wrap{margin-top:14px;display:none;}
+  .progress-bar{height:8px;background:#eee;border-radius:99px;overflow:hidden;}
+  .progress-bar > div{height:100%;background:var(--gold);width:0%;transition:width .15s;}
+  .progress-label{font-size:12px;color:var(--muted);margin-top:6px;}
+
+  .list-preview{margin-top:12px;max-height:130px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;}
+  .list-preview table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .list-preview td{padding:6px 10px;border-bottom:1px solid #f0eee6;}
+  .list-preview tr:last-child td{border-bottom:none;}
+  .list-preview td.idx{color:var(--muted);width:30px;}
+
+  .warn{
+    background:#fdf3ec;border:1px solid #f0d3bb;color:#8a4a1f;
+    border-radius:8px;padding:10px 12px;font-size:12.5px;margin-top:10px;
+  }
+  .success-msg{
+    background:#eef7ee;border:1px solid #c8e3c8;color:#2c5c2c;
+    border-radius:8px;padding:12px 14px;font-size:13px;margin-top:14px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark">C</div>
+  <div>
+    <h1>Certificate Generator</h1>
+    <p>Upload a template, load your student list, position the name — download every certificate as one ZIP</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="steps">
+    <div class="step-pill" id="pill1"><span class="num">1</span> Upload template</div>
+    <div class="step-pill" id="pill2"><span class="num">2</span> Load names</div>
+    <div class="step-pill" id="pill3"><span class="num">3</span> Position text</div>
+    <div class="step-pill" id="pill4"><span class="num">4</span> Generate & download</div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <!-- Template upload -->
+      <div class="panel">
+        <h2><span class="badge">1</span> Certificate template</h2>
+        <p class="hint">Upload the certificate as an image (PNG or JPG). If yours is a PDF, take a screenshot or export it as an image first.</p>
+        <div class="dropzone" id="tplDrop">
+          <strong>Click to upload or drag & drop</strong>
+          <p>PNG or JPG, any size</p>
+          <input type="file" id="tplInput" accept="image/png,image/jpeg">
+        </div>
+      </div>
+
+      <!-- Names upload -->
+      <div class="panel">
+        <h2><span class="badge">2</span> Student names</h2>
+        <p class="hint">Upload an Excel (.xlsx) or CSV file. The first column of each row is used as the name — a header row like "Name" is detected automatically.</p>
+        <div class="dropzone" id="namesDrop">
+          <strong>Click to upload or drag & drop</strong>
+          <p>.xlsx, .xls, or .csv</p>
+          <input type="file" id="namesInput" accept=".xlsx,.xls,.csv">
+        </div>
+        <div class="or-row">or paste names</div>
+        <textarea id="namesPaste" placeholder="Aarav Sharma&#10;Priya Verma&#10;Rohan Deshmukh&#10;(one name per line)"></textarea>
+        <div id="nameCountWrap"></div>
+        <div id="listPreview"></div>
+      </div>
+    </div>
+
+    <div>
+      <!-- Preview + styling -->
+      <div class="preview-wrap">
+        <h2>Preview & position</h2>
+        <p class="hint">Click on the certificate to set where the name goes. Drag the marker to fine-tune. Adjust font, size and color below.</p>
+
+        <div id="canvasHolder">
+          <div class="empty-preview" id="emptyPreview">
+            Upload a certificate template above to see it here
+          </div>
+          <canvas id="tplCanvas" style="display:none;"></canvas>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label class="field-label">Font</label>
+            <select id="fontFamily">
+              <option value="Georgia, 'Times New Roman', serif">Georgia (serif)</option>
+              <option value="'Times New Roman', Times, serif">Times New Roman</option>
+              <option value="'Playfair Display', Georgia, serif">Playfair-style serif</option>
+              <option value="'Segoe UI', Arial, sans-serif">Segoe UI (sans)</option>
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="'Brush Script MT', cursive">Script / cursive</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Color</label>
+            <input type="color" id="fontColor" value="#1c2333">
+          </div>
+        </div>
+
+        <label class="field-label">Font size: <span id="fontSizeOut">48</span>px</label>
+        <input type="range" id="fontSize" min="12" max="140" value="48">
+
+        <label class="field-label">Style</label>
+        <div class="toggle-row">
+          <div class="toggle-btn" id="boldBtn">Bold</div>
+          <div class="toggle-btn" id="italicBtn">Italic</div>
+          <div class="toggle-btn active" id="alignCenter" data-align="center">Center</div>
+          <div class="toggle-btn" id="alignLeft" data-align="left">Left</div>
+        </div>
+
+        <div class="warn" id="noTplWarn">Upload a template image first to enable positioning.</div>
+
+        <div class="actions">
+          <button class="secondary" id="previewSampleBtn">Preview with sample name</button>
+          <button class="primary" id="generateBtn" disabled>Generate all & download ZIP</button>
+        </div>
+
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-bar"><div id="progressFill"></div></div>
+          <div class="progress-label" id="progressLabel">Generating 0 of 0…</div>
+        </div>
+
+        <div class="success-msg" id="successMsg" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var state = {
+    tplImage: null,
+    tplNaturalW: 0,
+    tplNaturalH: 0,
+    names: [],
+    pos: {x: 0.5, y: 0.5},
+    fontSize: 48,
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    fontColor: "#1c2333",
+    bold: false,
+    italic: false,
+    align: "center"
+  };
+
+  var canvas = document.getElementById('tplCanvas');
+  var ctx = canvas.getContext('2d');
+  var emptyPreview = document.getElementById('emptyPreview');
+  var noTplWarn = document.getElementById('noTplWarn');
+  var generateBtn = document.getElementById('generateBtn');
+  var pill1 = document.getElementById('pill1');
+  var pill2 = document.getElementById('pill2');
+  var pill3 = document.getElementById('pill3');
+
+  function updateGenerateEnabled(){
+    var ready = state.tplImage && state.names.length > 0;
+    generateBtn.disabled = !ready;
+  }
+
+  // ---------- Template upload ----------
+  var tplDrop = document.getElementById('tplDrop');
+  var tplInput = document.getElementById('tplInput');
+  tplDrop.addEventListener('click', function(){ tplInput.click(); });
+  tplDrop.addEventListener('dragover', function(e){ e.preventDefault(); tplDrop.classList.add('drag'); });
+  tplDrop.addEventListener('dragleave', function(){ tplDrop.classList.remove('drag'); });
+  tplDrop.addEventListener('drop', function(e){
+    e.preventDefault(); tplDrop.classList.remove('drag');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]) loadTemplate(e.dataTransfer.files[0]);
+  });
+  tplInput.addEventListener('change', function(e){
+    if(e.target.files && e.target.files[0]) loadTemplate(e.target.files[0]);
+  });
+
+  function loadTemplate(file){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        state.tplImage = img;
+        state.tplNaturalW = img.naturalWidth;
+        state.tplNaturalH = img.naturalHeight;
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        emptyPreview.style.display = 'none';
+        canvas.style.display = 'block';
+        noTplWarn.style.display = 'none';
+        pill1.classList.add('done');
+        pill3.classList.add('done');
+        drawPreview();
+        updateGenerateEnabled();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---------- Names upload ----------
+  var namesDrop = document.getElementById('namesDrop');
+  var namesInput = document.getElementById('namesInput');
+  var namesPaste = document.getElementById('namesPaste');
+  namesDrop.addEventListener('click', function(){ namesInput.click(); });
+  namesDrop.addEventListener('dragover', function(e){ e.preventDefault(); namesDrop.classList.add('drag'); });
+  namesDrop.addEventListener('dragleave', function(){ namesDrop.classList.remove('drag'); });
+  namesDrop.addEventListener('drop', function(e){
+    e.preventDefault(); namesDrop.classList.remove('drag');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]) loadNamesFile(e.dataTransfer.files[0]);
+  });
+  namesInput.addEventListener('change', function(e){
+    if(e.target.files && e.target.files[0]) loadNamesFile(e.target.files[0]);
+  });
+  namesPaste.addEventListener('input', function(){
+    var lines = namesPaste.value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    setNames(lines);
+  });
+
+  function loadNamesFile(file){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var data = new Uint8Array(e.target.result);
+        var wb = XLSX.read(data, {type:'array'});
+        var sheet = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:""});
+        var extracted = [];
+        rows.forEach(function(row){
+          if(!row || row.length===0) return;
+          var val = (row[0] || "").toString().trim();
+          if(!val) return;
+          var lower = val.toLowerCase();
+          if(lower === 'name' || lower === 'student name' || lower === 'names' || lower === 'full name') return;
+          extracted.push(val);
+        });
+        setNames(extracted);
+        namesPaste.value = extracted.join('\n');
+      }catch(err){
+        alert('Could not read that file. Please check it is a valid Excel or CSV file.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function setNames(list){
+    state.names = list;
+    pill2.classList.toggle('done', list.length>0);
+    var wrap = document.getElementById('nameCountWrap');
+    wrap.innerHTML = list.length ? '<span class="name-count">' + list.length + ' student' + (list.length===1?'':'s') + ' loaded</span>' : '';
+    var lp = document.getElementById('listPreview');
+    if(list.length){
+      var rows = list.slice(0,50).map(function(n,i){
+        return '<tr><td class="idx">'+(i+1)+'</td><td>'+escapeHtml(n)+'</td></tr>';
+      }).join('');
+      lp.innerHTML = '<div class="list-preview"><table>'+rows+'</table></div>';
+    } else {
+      lp.innerHTML = '';
+    }
+    updateGenerateEnabled();
+    drawPreview();
+  }
+
+  function escapeHtml(s){
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ---------- Styling controls ----------
+  document.getElementById('fontFamily').addEventListener('change', function(e){
+    state.fontFamily = e.target.value; drawPreview();
+  });
+  document.getElementById('fontColor').addEventListener('input', function(e){
+    state.fontColor = e.target.value; drawPreview();
+  });
+  var fontSizeEl = document.getElementById('fontSize');
+  var fontSizeOut = document.getElementById('fontSizeOut');
+  fontSizeEl.addEventListener('input', function(e){
+    state.fontSize = parseInt(e.target.value,10);
+    fontSizeOut.textContent = state.fontSize;
+    drawPreview();
+  });
+  document.getElementById('boldBtn').addEventListener('click', function(){
+    state.bold = !state.bold;
+    this.classList.toggle('active', state.bold);
+    drawPreview();
+  });
+  document.getElementById('italicBtn').addEventListener('click', function(){
+    state.italic = !state.italic;
+    this.classList.toggle('active', state.italic);
+    drawPreview();
+  });
+  document.getElementById('alignCenter').addEventListener('click', function(){ setAlign('center'); });
+  document.getElementById('alignLeft').addEventListener('click', function(){ setAlign('left'); });
+  function setAlign(a){
+    state.align = a;
+    document.getElementById('alignCenter').classList.toggle('active', a==='center');
+    document.getElementById('alignLeft').classList.toggle('active', a==='left');
+    drawPreview();
+  }
+
+  // ---------- Position via click/drag on canvas ----------
+  var dragging = false;
+  canvas.addEventListener('mousedown', function(e){
+    if(!state.tplImage) return;
+    dragging = true;
+    setPosFromEvent(e);
+  });
+  window.addEventListener('mousemove', function(e){
+    if(dragging) setPosFromEvent(e);
+  });
+  window.addEventListener('mouseup', function(){ dragging = false; });
+  canvas.addEventListener('click', function(e){
+    if(!state.tplImage) return;
+    setPosFromEvent(e);
+  });
+
+  function setPosFromEvent(e){
+    var rect = canvas.getBoundingClientRect();
+    var x = (e.clientX - rect.left) / rect.width;
+    var y = (e.clientY - rect.top) / rect.height;
+    x = Math.min(1, Math.max(0, x));
+    y = Math.min(1, Math.max(0, y));
+    state.pos.x = x; state.pos.y = y;
+    drawPreview();
+  }
+
+  document.getElementById('previewSampleBtn').addEventListener('click', function(){
+    drawPreview(true);
+  });
+
+  function fontString(){
+    var weight = state.bold ? 'bold' : 'normal';
+    var style = state.italic ? 'italic' : 'normal';
+    return style + ' ' + weight + ' ' + state.fontSize + 'px ' + state.fontFamily;
+  }
+
+  function drawPreview(forceSample){
+    if(!state.tplImage) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(state.tplImage, 0, 0, canvas.width, canvas.height);
+
+    var sampleName = (state.names[0]) ? state.names[0] : "Student Name";
+    var text = sampleName;
+
+    var px = state.pos.x * canvas.width;
+    var py = state.pos.y * canvas.height;
+
+    ctx.font = fontString();
+    ctx.fillStyle = state.fontColor;
+    ctx.textAlign = state.align;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, px, py);
+
+    // marker crosshair
+    ctx.save();
+    ctx.strokeStyle = 'rgba(200,162,74,0.9)';
+    ctx.lineWidth = Math.max(1, canvas.width*0.0015);
+    var r = Math.max(6, canvas.width*0.01);
+    ctx.beginPath();
+    ctx.moveTo(px-r, py); ctx.lineTo(px+r, py);
+    ctx.moveTo(px, py-r); ctx.lineTo(px, py+r);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(px, py, r*1.4, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ---------- Generate & zip ----------
+  document.getElementById('generateBtn').addEventListener('click', function(){
+    if(!state.tplImage || state.names.length===0) return;
+    generateAll();
+  });
+
+  function sanitizeFilename(name){
+    return name.replace(/[\\\/:*?"<>|]/g,'').trim().replace(/\s+/g,'_') || 'certificate';
+  }
+
+  function generateAll(){
+    var progressWrap = document.getElementById('progressWrap');
+    var progressFill = document.getElementById('progressFill');
+    var progressLabel = document.getElementById('progressLabel');
+    var successMsg = document.getElementById('successMsg');
+    successMsg.style.display = 'none';
+    progressWrap.style.display = 'block';
+    generateBtn.disabled = true;
+
+    var zip = new JSZip();
+    var total = state.names.length;
+    var offCanvas = document.createElement('canvas');
+    offCanvas.width = state.tplNaturalW;
+    offCanvas.height = state.tplNaturalH;
+    var offCtx = offCanvas.getContext('2d');
+
+    var i = 0;
+    function step(){
+      if(i >= total){
+        finishZip(zip, total);
+        return;
+      }
+      var name = state.names[i];
+      offCtx.clearRect(0,0,offCanvas.width, offCanvas.height);
+      offCtx.drawImage(state.tplImage, 0, 0, offCanvas.width, offCanvas.height);
+      offCtx.font = fontString();
+      offCtx.fillStyle = state.fontColor;
+      offCtx.textAlign = state.align;
+      offCtx.textBaseline = 'middle';
+      var px = state.pos.x * offCanvas.width;
+      var py = state.pos.y * offCanvas.height;
+      offCtx.fillText(name, px, py);
+
+      var dataUrl = offCanvas.toDataURL('image/png');
+      var base64 = dataUrl.split(',')[1];
+      var filename = String(i+1).padStart(3,'0') + '_' + sanitizeFilename(name) + '.png';
+      zip.file(filename, base64, {base64:true});
+
+      i++;
+      var pct = Math.round((i/total)*100);
+      progressFill.style.width = pct + '%';
+      progressLabel.textContent = 'Generating ' + i + ' of ' + total + '…';
+      setTimeout(step, 0);
+    }
+    step();
+  }
+
+  function finishZip(zip, total){
+    var progressLabel = document.getElementById('progressLabel');
+    progressLabel.textContent = 'Packaging ZIP…';
+    zip.generateAsync({type:'blob'}).then(function(blob){
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'certificates.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+
+      document.getElementById('progressWrap').style.display = 'none';
+      var successMsg = document.getElementById('successMsg');
+      successMsg.style.display = 'block';
+      successMsg.textContent = total + ' certificates generated and downloaded as certificates.zip';
+      generateBtn.disabled = false;
+      document.getElementById('pill4').classList.add('done');
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
